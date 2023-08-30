@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="rus">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Учет отсутствия сотрудников на рабочем месте</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <link href="style.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-HwwvtgBNo3bZJJLYd8oVXjrBZt8cqVSpeBNS5n7C8IVInixGAoxmnlMuBnhbgrkm" crossorigin="anonymous"></script>
+</head>
+<body>
+    <div class="container text-center">
+        <button type="button" class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#exampleModal">Добавить запись</button>
+        <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-body">
+                        <div class="container mt-3 row">
+                            <div class="form-group">
+                                <label for="Id" class="control-label">ID</label>
+                                <input name="Id" class="form-control" id="TimesheetId" readonly />
+                            </div>
+                        </div>
+                        <div class="container mt-3 row">
+                            <div class="form-group">
+                                <label for="Reason" class="control-label">Причина</label>
+                                <select name="Reason" class="form-select" id="Reason" aria-label="Default select example">
+                                    <option value="0" selected>Отпуск</option>
+                                    <option value="1">Больничный</option>
+                                    <option value="2">Прогул</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="container mt-3 row ">
+                            <div class="form-group ">
+                                <label for="StartDate" class="control-label">Дата начала</label>
+                                <input type="Date" name="StartDate" class="form-control" id="StartDate" />
+                            </div>
+                        </div>
+                        <div class="container mt-3 row ">
+                            <div class="form-group ">
+                                <label for="Duration" class="control-label">Продолжительность (раб. дней)</label>
+                                <input type="number" name="Duration" class="form-control" id="Duration" />
+                            </div>
+                        </div>
+                        <div class="container mt-3 row ">
+                            <div class="form-group form-check ">
+                                <label class="form-check-label">
+                                    <input type="checkbox" name="Discounted" class="form-check-input" id="Discounted" />
+                                    <label for="Discounted" class="form-check-label">Учтено при оплате</label>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="container mt-3 row ">
+                            <div class="form-group ">
+                                <label for="Description" class="control-label">Комментарий</label>
+                                <textarea name="Description" class="form-control" id="Description"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" id="btnClose" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                        <button type="button" id="btnSubmit" class="btn btn-primary">Добавить</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <table class="table">
+            <thead>
+                <tr>
+                    <td>
+                        Идентификатор
+                    </td>
+                    <td>
+                        Причина отсутствия
+                    </td>
+                    <td>
+                        Дата начала
+                    </td>
+                    <td>
+                        Продолжительность (раб. дней)
+                    </td>
+                    <td>
+                        Учтено при оплате
+                    </td>
+                    <td>
+                        Комментарий
+                    </td>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        async function getTimesheets() {
+            const response = await fetch("/api/timesheets", {
+                method: "GET",
+                headers: { "Accept": "application/json" }
+            });
+            if (response.ok === true) {
+                const timesheets = await response.json();
+                const rows = document.querySelector("tbody");
+                timesheets.forEach(timesheet => rows.append(row(timesheet)));
+            }
+        }
+        async function getTimesheet(id) {
+            const response = await fetch(`/api/timesheets/${id}`, {
+                method: "GET",
+                headers: { "Accept": "application/json" }
+            });
+            if (response.ok === true) {
+                const timesheet = await response.json();
+                document.getElementById("TimesheetId").value = timesheet.id;
+                document.getElementById("Reason").value = timesheet.reason;
+                document.getElementById("StartDate").value = new Date(timesheet.startDate).toISOString().slice(0, 10);
+                document.getElementById("Duration").value = timesheet.duration;
+                const discounted = document.getElementById("Discounted");
+                document.getElementById("Description").value = timesheet.description;
+
+                if (timesheet.discounted)
+                    discounted.checked = true;
+                else
+                    discounted.checked = false;
+            }
+            else {
+                const error = await response.json();
+                console.log(error.message);
+            }
+        }
+        async function createTimesheet(Reason, StartDate, Duration, Discounted, Description) {
+            const response = await fetch("/api/timesheets", {
+                method: "POST",
+                headers: { "Accept": "application/json", "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    reason: parseInt(Reason, 10),
+                    startDate: StartDate,
+                    duration: parseInt(Duration, 10),
+                    discounted: Discounted,
+                    description: Description
+                })
+            });
+            if (response.ok === true) {
+                const timesheet = await response.json();
+                document.querySelector("tbody").append(row(timesheet));
+            }
+            else {
+                const error = await response.json();
+                console.log(error.message);
+            }
+        }
+        async function editTimesheet(Id, Reason, StartDate, Duration, Discounted, Description) {
+            const response = await fetch("api/timesheets", {
+                method: "PUT",
+                headers: { "Accept": "application/json", "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    id: Id,
+                    reason: parseInt(Reason, 10),
+                    startDate: StartDate,
+                    duration: parseInt(Duration, 10),
+                    discounted: Discounted,
+                    description: Description
+                })
+            });
+            if (response.ok === true) {
+                const timesheet = await response.json();
+                document.querySelector(`tr[data-rowid='${timesheet.id}']`).replaceWith(row(timesheet));
+            }
+            else {
+                const error = await response.json();
+                console.log(error.message);
+            }
+        }
+        async function deleteTimesheet(id) {
+            const response = await fetch(`/api/timesheets/${id}`, {
+                method: "DELETE",
+                headers: { "Accept": "application/json" }
+            });
+            if (response.ok === true) {
+                const timesheetId = await response.json();
+                document.querySelector(`tr[data-rowid='${timesheetId}']`).remove();
+            }
+            else {
+                const error = await response.json();
+                console.log(error.message);
+            }
+        }
+
+        function reset() {
+            const id = document.getElementById("TimesheetId");
+            const reason = document.getElementById("Reason");
+            const startDate = document.getElementById("StartDate");
+            const duration = document.getElementById("Duration");
+            const discounted = document.getElementById("Discounted");
+            const description = document.getElementById("Description");
+
+            id.value =
+            duration.value =
+            description.value = "";
+            reason.value = 0;
+            startDate.value = null;
+            discounted.checked = false;
+            startDate.classList.remove("is-invalid");
+            duration.classList.remove("is-invalid");
+            description.classList.remove("is-invalid");
+        }
+
+        function row(timesheet) {
+
+            const tr = document.createElement("tr");
+            tr.setAttribute("data-rowid", timesheet.id);
+
+            const IdTd = document.createElement("td");
+            IdTd.append(timesheet.id);
+            tr.append(IdTd);
+
+            const reasonTd = document.createElement("td");
+            if (timesheet.reason == 0)
+                reasonTd.append('Отпуск');
+            else if (timesheet.reason == 1)
+                reasonTd.append('Больничный');
+            else
+                reasonTd.append('Прогул');
+            tr.append(reasonTd);
+
+            const startDateTd = document.createElement("td");
+            const startDateFormatted = new Date(timesheet.startDate);
+            startDateTd.append(startDateFormatted.toLocaleDateString('ru-Ru'));
+            tr.append(startDateTd);
+
+            const durationTd = document.createElement("td");
+            durationTd.append(timesheet.duration);
+            tr.append(durationTd);
+
+            const discountedTd = document.createElement("td");
+            if (timesheet.discounted)
+                discountedTd.append('Да');
+            else
+                discountedTd.append('Нет');
+            tr.append(discountedTd);
+
+            const descriptionTd = document.createElement("td");
+            descriptionTd.append(timesheet.description);
+            tr.append(descriptionTd);
+
+            const linksTd = document.createElement("td");
+            linksTd.classList.add("d-grid", "gap-2", "d-xxl-table-cell");
+
+            const editLink = document.createElement("button");
+            editLink.append("Изменить");
+            editLink.classList.add("btn", "btn-outline-primary", "me-xxl-3");
+            editLink.id = "editBtn";
+            editLink.setAttribute("data-bs-toggle", "modal");
+            editLink.setAttribute("data-bs-target", "#exampleModal");
+            editLink.addEventListener("click", async () => await getTimesheet(timesheet.id));
+            linksTd.append(editLink);
+
+            const removeLink = document.createElement("button");
+            removeLink.append("Удалить");
+            removeLink.classList.add("btn", "btn-outline-danger");
+            removeLink.addEventListener("click", async () => await deleteTimesheet(timesheet.id));
+
+            linksTd.append(removeLink);
+            tr.appendChild(linksTd);
+
+            return tr;
+        }
+
+        function isRequiredFieldsNull(startDate, duration, description) {
+            let isNull = false;
+
+            if (!startDate.value) {
+                isNull = true;
+                startDate.classList.add("is-invalid");
+            }
+            else
+                startDate.classList.remove("is-invalid");
+
+            if (!duration.value) {
+                isNull = true;
+                duration.classList.add("is-invalid");
+            }
+            else
+                duration.classList.remove("is-invalid");
+
+            if (!description.value) {
+                isNull = true;
+                description.classList.add("is-invalid");
+            }
+            else
+                description.classList.remove("is-invalid");
+
+            return isNull;
+        }
+
+        document.getElementById("btnSubmit").addEventListener("click", async () => {
+
+            const id = document.getElementById("TimesheetId");
+            const reason = document.getElementById("Reason");
+            const startDate = document.getElementById("StartDate");
+            const duration = document.getElementById("Duration");
+            const discounted = document.getElementById("Discounted");
+            const description = document.getElementById("Description");
+
+            console.log('id = ', id.value, ' date = ', startDate.value, ' reason = ', reason.value, ' duration = ', duration.value, ' discounted = ', discounted.checked, ' description = ', description.value);
+
+            if (!isRequiredFieldsNull(startDate, duration, description)) {
+                if (id.value === "")
+                    await createTimesheet(reason.value, startDate.value, duration.value, discounted.checked, description.value);
+                else
+                    await editTimesheet(id.value, reason.value, startDate.value, duration.value, discounted.checked, description.value);
+                reset();
+            }
+        });
+
+        document.getElementById("btnClose").addEventListener("click", () => {
+            reset();
+        });
+
+        getTimesheets();
+    </script>
+</body>
+</html>
